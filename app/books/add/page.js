@@ -1,0 +1,310 @@
+'use client'
+import { useState } from 'react'
+import { createClient } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
+
+export default function AddBook() {
+  const [form, setForm] = useState({
+    title: '', author: '', translator: '', publisher: '',
+    isbn: '', year: '', language: 'fa', genre: '',
+    condition: 'good', offer_type: [], price: '', description: ''
+  })
+  const [loading, setLoading] = useState(false)
+  const [isbnLoading, setIsbnLoading] = useState(false)
+  const [isbnError, setIsbnError] = useState('')
+  const [error, setError] = useState('')
+  const router = useRouter()
+  const supabase = createClient()
+
+  function handleChange(e) {
+    setForm({ ...form, [e.target.name]: e.target.value })
+  }
+
+  function handleOfferType(type) {
+    setForm(prev => ({
+      ...prev,
+      offer_type: prev.offer_type.includes(type)
+        ? prev.offer_type.filter(t => t !== type)
+        : [...prev.offer_type, type]
+    }))
+  }
+
+  async function fetchBookByISBN() {
+    if (!form.isbn.trim()) {
+      setIsbnError('شابک را وارد کنید')
+      return
+    }
+    setIsbnLoading(true)
+    setIsbnError('')
+
+    const isbn = form.isbn.replace(/-/g, '').trim()
+
+    try {
+      // اول Google Books API
+      const googleRes = await fetch(
+        `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`
+      )
+      const googleData = await googleRes.json()
+
+      if (googleData.items?.length > 0) {
+        const info = googleData.items[0].volumeInfo
+        setForm(prev => ({
+          ...prev,
+          title: info.title || prev.title,
+          author: info.authors?.join('، ') || prev.author,
+          publisher: info.publisher || prev.publisher,
+          year: info.publishedDate?.substring(0, 4) || prev.year,
+          description: info.description?.substring(0, 300) || prev.description,
+          language: info.language === 'fa' ? 'fa' :
+                    info.language === 'en' ? 'en' : prev.language,
+        }))
+        setIsbnError('')
+        setIsbnLoading(false)
+        return
+      }
+
+      // اگر Google نداشت، Open Library امتحان کن
+      const olRes = await fetch(
+        `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`
+      )
+      const olData = await olRes.json()
+      const book = olData[`ISBN:${isbn}`]
+
+      if (book) {
+        setForm(prev => ({
+          ...prev,
+          title: book.title || prev.title,
+          author: book.authors?.map(a => a.name).join('، ') || prev.author,
+          publisher: book.publishers?.[0]?.name || prev.publisher,
+          year: book.publish_date?.match(/\d{4}/)?.[0] || prev.year,
+        }))
+        setIsbnError('')
+      } else {
+        setIsbnError('کتابی با این شابک پیدا نشد — اطلاعات را دستی وارد کنید')
+      }
+    } catch {
+      setIsbnError('خطا در اتصال به سرویس کتاب‌شناسی')
+    }
+
+    setIsbnLoading(false)
+  }
+
+  async function handleSubmit() {
+    if (!form.title || !form.author) {
+      setError('عنوان و نویسنده الزامی است')
+      return
+    }
+    if (form.offer_type.length === 0) {
+      setError('حداقل یک نوع پیشنهاد انتخاب کنید')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { error } = await supabase.from('books').insert({
+      ...form,
+      user_id: user.id,
+      year: form.year ? parseInt(form.year) : null,
+      price: form.price ? parseInt(form.price) : null,
+    })
+
+    if (error) {
+      setError('خطا در ذخیره کتاب')
+    } else {
+      router.push('/dashboard')
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8" dir="rtl">
+      <div className="max-w-2xl mx-auto px-4">
+        <div className="bg-white rounded-2xl shadow-sm p-8">
+          <h1 className="text-2xl font-bold mb-6 text-gray-800">افزودن کتاب جدید</h1>
+
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>
+          )}
+
+          <div className="space-y-4">
+
+            {/* جستجو با شابک */}
+            <div className="bg-blue-50 rounded-xl p-4">
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                🔍 پر کردن خودکار با شابک (ISBN)
+              </p>
+              <div className="flex gap-2">
+                <input
+                  name="isbn"
+                  value={form.isbn}
+                  onChange={handleChange}
+                  className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="مثال: 9786001218552"
+                  dir="ltr"
+                />
+                <button
+                  onClick={fetchBookByISBN}
+                  disabled={isbnLoading}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 transition whitespace-nowrap">
+                  {isbnLoading ? '...' : 'جستجو'}
+                </button>
+              </div>
+              {isbnError && (
+                <p className="text-xs text-red-500 mt-2">{isbnError}</p>
+              )}
+              {!isbnError && (
+                <p className="text-xs text-gray-400 mt-2">
+                  با وارد کردن شابک، اطلاعات کتاب خودکار پر می‌شود
+                </p>
+              )}
+            </div>
+
+            {/* عنوان */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                عنوان کتاب <span className="text-red-500">*</span>
+              </label>
+              <input name="title" value={form.title} onChange={handleChange}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="مثال: بوف کور" />
+            </div>
+
+            {/* نویسنده */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                نویسنده <span className="text-red-500">*</span>
+              </label>
+              <input name="author" value={form.author} onChange={handleChange}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="مثال: صادق هدایت" />
+            </div>
+
+            {/* مترجم */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">مترجم</label>
+              <input name="translator" value={form.translator} onChange={handleChange}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="اگر ترجمه است" />
+            </div>
+
+            {/* ناشر و سال */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ناشر</label>
+                <input name="publisher" value={form.publisher} onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">سال چاپ</label>
+                <input name="year" value={form.year} onChange={handleChange} type="number"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="مثال: 1402" />
+              </div>
+            </div>
+
+            {/* ژانر و زبان */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ژانر</label>
+                <input name="genre" value={form.genre} onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="مثال: رمان، علمی" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">زبان</label>
+                <select name="language" value={form.language} onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="fa">فارسی</option>
+                  <option value="en">انگلیسی</option>
+                  <option value="ar">عربی</option>
+                  <option value="other">سایر</option>
+                </select>
+              </div>
+            </div>
+
+            {/* وضعیت کتاب */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">وضعیت کتاب</label>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { value: 'new', label: 'نو' },
+                  { value: 'good', label: 'خوب' },
+                  { value: 'fair', label: 'متوسط' },
+                  { value: 'poor', label: 'فرسوده' },
+                ].map(c => (
+                  <button key={c.value} type="button"
+                    onClick={() => setForm({ ...form, condition: c.value })}
+                    className={`py-2 rounded-lg text-sm border transition ${
+                      form.condition === c.value
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                    }`}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* نوع پیشنهاد */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                نوع پیشنهاد <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { value: 'borrow', label: '📤 قرض' },
+                  { value: 'gift', label: '🎁 هدیه' },
+                  { value: 'sell', label: '💰 فروش' },
+                ].map(o => (
+                  <button key={o.value} type="button"
+                    onClick={() => handleOfferType(o.value)}
+                    className={`py-2 rounded-lg text-sm border transition ${
+                      form.offer_type.includes(o.value)
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                    }`}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* قیمت */}
+            {form.offer_type.includes('sell') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">قیمت (تومان)</label>
+                <input name="price" value={form.price} onChange={handleChange} type="number"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="مثال: 50000" />
+              </div>
+            )}
+
+            {/* توضیحات */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">توضیحات</label>
+              <textarea name="description" value={form.description} onChange={handleChange}
+                rows={3}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="هر توضیح اضافه‌ای درباره کتاب..." />
+            </div>
+
+            {/* دکمه‌ها */}
+            <div className="flex gap-3 pt-2">
+              <button onClick={handleSubmit} disabled={loading}
+                className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition">
+                {loading ? 'در حال ذخیره...' : 'ذخیره کتاب'}
+              </button>
+              <button onClick={() => router.back()}
+                className="px-6 py-3 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition">
+                انصراف
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
