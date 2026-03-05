@@ -147,10 +147,11 @@ export default function AddBook() {
     // آپلود تصویر
     let coverUrl = null
     if (coverFile) {
-      coverUrl = await uploadCover(user.id)
+       coverUrl = await uploadCover(user.id)
+       console.log('coverUrl before save:', coverUrl)
     } else if (coverPreview && coverPreview.startsWith('http')) {
-      // تصویر از API
       coverUrl = coverPreview
+      console.log('coverUrl from API:', coverUrl)
     }
 
     const { error } = await supabase.from('books').insert({
