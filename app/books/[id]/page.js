@@ -62,6 +62,13 @@ export default async function BookDetail({ params }) {
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         <div className="bg-white rounded-2xl shadow-sm p-8">
+	{book.cover_url && (
+	  <img
+    src={book.cover_url}
+    alt={book.title}
+    className="w-full h-64 object-contain rounded-xl mb-6 bg-gray-50"
+	  />
+	)}
           {/* عنوان */}
           <div className="flex justify-between items-start">
             <div>
