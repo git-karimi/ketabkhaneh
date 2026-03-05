@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 export default function AddBook() {
   const [form, setForm] = useState({
@@ -9,6 +10,8 @@ export default function AddBook() {
     isbn: '', year: '', language: 'fa', genre: '',
     condition: 'good', offer_type: [], price: '', description: ''
   })
+  const [coverFile, setCoverFile] = useState(null)
+  const [coverPreview, setCoverPreview] = useState(null)
   const [loading, setLoading] = useState(false)
   const [isbnLoading, setIsbnLoading] = useState(false)
   const [isbnError, setIsbnError] = useState('')
@@ -29,18 +32,25 @@ export default function AddBook() {
     }))
   }
 
-  async function fetchBookByISBN() {
-    if (!form.isbn.trim()) {
-      setIsbnError('شابک را وارد کنید')
+  function handleCoverChange(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) {
+      setError('حجم تصویر نباید بیشتر از ۲ مگابایت باشد')
       return
     }
+    setCoverFile(file)
+    setCoverPreview(URL.createObjectURL(file))
+  }
+
+  async function fetchBookByISBN() {
+    if (!form.isbn.trim()) { setIsbnError('شابک را وارد کنید'); return }
     setIsbnLoading(true)
     setIsbnError('')
 
     const isbn = form.isbn.replace(/-/g, '').trim()
 
     try {
-      // اول Google Books API
       const googleRes = await fetch(
         `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`
       )
@@ -58,12 +68,17 @@ export default function AddBook() {
           language: info.language === 'fa' ? 'fa' :
                     info.language === 'en' ? 'en' : prev.language,
         }))
-        setIsbnError('')
+
+        // اگر تصویر جلد از Google Books داشت
+        const thumbnail = info.imageLinks?.thumbnail
+        if (thumbnail && !coverPreview) {
+          setCoverPreview(thumbnail.replace('http:', 'https:'))
+        }
+
         setIsbnLoading(false)
         return
       }
 
-      // اگر Google نداشت، Open Library امتحان کن
       const olRes = await fetch(
         `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`
       )
@@ -78,7 +93,9 @@ export default function AddBook() {
           publisher: book.publishers?.[0]?.name || prev.publisher,
           year: book.publish_date?.match(/\d{4}/)?.[0] || prev.year,
         }))
-        setIsbnError('')
+        if (book.cover?.large && !coverPreview) {
+          setCoverPreview(book.cover.large)
+        }
       } else {
         setIsbnError('کتابی با این شابک پیدا نشد — اطلاعات را دستی وارد کنید')
       }
@@ -87,6 +104,25 @@ export default function AddBook() {
     }
 
     setIsbnLoading(false)
+  }
+
+  async function uploadCover(userId) {
+    if (!coverFile) return null
+
+    const ext = coverFile.name.split('.').pop()
+    const fileName = `${userId}/${Date.now()}.${ext}`
+
+    const { error } = await supabase.storage
+      .from('book-covers')
+      .upload(fileName, coverFile)
+
+    if (error) return null
+
+    const { data } = supabase.storage
+      .from('book-covers')
+      .getPublicUrl(fileName)
+
+    return data.publicUrl
   }
 
   async function handleSubmit() {
@@ -104,15 +140,25 @@ export default function AddBook() {
 
     const { data: { user } } = await supabase.auth.getUser()
 
+    // آپلود تصویر
+    let coverUrl = null
+    if (coverFile) {
+      coverUrl = await uploadCover(user.id)
+    } else if (coverPreview && coverPreview.startsWith('http')) {
+      // تصویر از API
+      coverUrl = coverPreview
+    }
+
     const { error } = await supabase.from('books').insert({
       ...form,
       user_id: user.id,
       year: form.year ? parseInt(form.year) : null,
       price: form.price ? parseInt(form.price) : null,
+      cover_url: coverUrl,
     })
 
     if (error) {
-      setError('خطا در ذخیره کتاب')
+      setError('خطا در ذخیره کتاب: ' + error.message)
     } else {
       router.push('/dashboard')
     }
@@ -137,29 +183,53 @@ export default function AddBook() {
                 🔍 پر کردن خودکار با شابک (ISBN)
               </p>
               <div className="flex gap-2">
-                <input
-                  name="isbn"
-                  value={form.isbn}
-                  onChange={handleChange}
+                <input name="isbn" value={form.isbn} onChange={handleChange}
                   className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  placeholder="مثال: 9786001218552"
-                  dir="ltr"
-                />
-                <button
-                  onClick={fetchBookByISBN}
-                  disabled={isbnLoading}
+                  placeholder="مثال: 9786001218552" dir="ltr" />
+                <button onClick={fetchBookByISBN} disabled={isbnLoading}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 transition whitespace-nowrap">
                   {isbnLoading ? '...' : 'جستجو'}
                 </button>
               </div>
-              {isbnError && (
-                <p className="text-xs text-red-500 mt-2">{isbnError}</p>
-              )}
-              {!isbnError && (
-                <p className="text-xs text-gray-400 mt-2">
-                  با وارد کردن شابک، اطلاعات کتاب خودکار پر می‌شود
-                </p>
-              )}
+              {isbnError && <p className="text-xs text-red-500 mt-2">{isbnError}</p>}
+            </div>
+
+            {/* آپلود تصویر جلد */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">تصویر جلد</label>
+              <div className="flex gap-4 items-start">
+                {/* پیش‌نمایش */}
+                <div className="w-24 h-32 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 border border-gray-200">
+                  {coverPreview ? (
+                    <img src={coverPreview} alt="جلد کتاب"
+                      className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-3xl">📖</span>
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-2">
+                  <label className="block w-full cursor-pointer">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition">
+                      <p className="text-sm text-gray-500">کلیک کنید یا فایل را اینجا بکشید</p>
+                      <p className="text-xs text-gray-400 mt-1">JPG، PNG — حداکثر ۲ مگابایت</p>
+                    </div>
+                    <input type="file" accept="image/*" onChange={handleCoverChange} className="hidden" />
+                  </label>
+                  {coverPreview && (
+                    <button
+                      onClick={() => { setCoverFile(null); setCoverPreview(null) }}
+                      className="text-xs text-red-500 hover:underline">
+                      حذف تصویر
+                    </button>
+                  )}
+                  {!coverFile && !coverPreview && (
+                    <p className="text-xs text-gray-400">
+                      اگر شابک وارد کنید، تصویر خودکار پیدا می‌شود
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* عنوان */}

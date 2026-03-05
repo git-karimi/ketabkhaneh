@@ -170,6 +170,10 @@ export default function Home() {
               <div key={book.id}
                 className="bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition flex flex-col justify-between">
                 <div>
+		{book.cover_url && (
+		  <img src={book.cover_url} alt={book.title}
+		    className="w-full h-40 object-cover rounded-lg mb-3" />
+		)}
                   <h3 className="font-bold text-gray-800 text-lg leading-tight">{book.title}</h3>
                   <p className="text-sm text-gray-500 mt-1">{book.author}</p>
                   {book.translator && (
