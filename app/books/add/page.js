@@ -107,23 +107,27 @@ export default function AddBook() {
   }
 
   async function uploadCover(userId) {
-    if (!coverFile) return null
+  if (!coverFile) return null
 
-    const ext = coverFile.name.split('.').pop()
-    const fileName = `${userId}/${Date.now()}.${ext}`
+  const ext = coverFile.name.split('.').pop()
+  const fileName = `${userId}/${Date.now()}.${ext}`
 
-    const { error } = await supabase.storage
-      .from('book-covers')
-      .upload(fileName, coverFile)
+  const { data, error } = await supabase.storage
+    .from('book-covers')
+    .upload(fileName, coverFile)
 
-    if (error) return null
-
-    const { data } = supabase.storage
-      .from('book-covers')
-      .getPublicUrl(fileName)
-
-    return data.publicUrl
+  if (error) {
+    console.error('upload error:', error)
+    return null
   }
+
+  const { data: urlData } = supabase.storage
+    .from('book-covers')
+    .getPublicUrl(fileName)
+
+  console.log('cover url:', urlData.publicUrl)
+  return urlData.publicUrl
+}
 
   async function handleSubmit() {
     if (!form.title || !form.author) {
