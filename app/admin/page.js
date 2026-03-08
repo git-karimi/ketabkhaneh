@@ -5,16 +5,20 @@ import Link from 'next/link'
 export default async function AdminDashboard() {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
+  
+  console.log('admin page - user:', user?.id)
+  
   if (!user) redirect('/login')
 
-  // چک کردن نقش ادمین
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single()
 
-  if (profile?.role !== 'admin') redirect('/')
+  console.log('admin page - profile:', profile, 'error:', error)
+
+  if (!profile || profile.role !== 'admin') redirect('/')
 
   // آمار کلی
   const [
@@ -48,7 +52,6 @@ export default async function AdminDashboard() {
       <main className="max-w-6xl mx-auto px-4 py-8">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">داشبورد</h2>
 
-        {/* آمار */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {stats.map(s => (
             <Link key={s.href} href={s.href}
@@ -60,7 +63,6 @@ export default async function AdminDashboard() {
           ))}
         </div>
 
-        {/* منوی مدیریت */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
             { href: '/admin/users', icon: '👥', title: 'مدیریت کاربران', desc: 'مشاهده، مسدود کردن و تغییر نقش کاربران' },

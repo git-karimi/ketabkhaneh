@@ -26,31 +26,11 @@ export async function middleware(request) {
   const { data: { user } } = await supabase.auth.getUser()
   const path = request.nextUrl.pathname
 
-  // صفحاتی که نیاز به لاگین دارند
   const protectedRoutes = ['/dashboard', '/books/add', '/books/edit']
   const isProtected = protectedRoutes.some(route => path.startsWith(route))
 
   if (isProtected && !user) {
     return NextResponse.redirect(new URL('/login', request.url))
-  }
-
-  // صفحه ادمین
-  if (path.startsWith('/admin')) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    console.log('admin check - user:', user.id, 'role:', profile?.role)
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.redirect(new URL('/', request.url))
-    }
   }
 
   return supabaseResponse
