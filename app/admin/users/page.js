@@ -8,16 +8,11 @@ export default async function AdminUsers() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+    .from('profiles').select('role, full_name').eq('id', user.id).single()
   if (profile?.role !== 'admin') redirect('/')
 
   const { data: users } = await supabase
-    .from('profiles')
-    .select('*')
-    .order('created_at', { ascending: false })
+    .from('profiles').select('*').order('created_at', { ascending: false })
 
-  return <UsersManager users={users || []} currentUserId={user.id} />
+  return <UsersManager users={users || []} currentUserId={user.id} adminName={profile.full_name} />
 }

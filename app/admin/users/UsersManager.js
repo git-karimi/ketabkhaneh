@@ -2,9 +2,9 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import AdminLayout from '../AdminLayout'
 
-export default function UsersManager({ users, currentUserId }) {
+export default function UsersManager({ users, currentUserId, adminName }) {
   const [loading, setLoading] = useState(null)
   const [search, setSearch] = useState('')
   const router = useRouter()
@@ -17,89 +17,64 @@ export default function UsersManager({ users, currentUserId }) {
 
   async function handleBan(userId, isBanned) {
     setLoading(userId)
-    await supabase.from('profiles')
-      .update({ is_banned: !isBanned })
-      .eq('id', userId)
+    await supabase.from('profiles').update({ is_banned: !isBanned }).eq('id', userId)
     router.refresh()
     setLoading(null)
   }
 
   async function handleRole(userId, role) {
     setLoading(userId)
-    await supabase.from('profiles')
-      .update({ role })
-      .eq('id', userId)
+    await supabase.from('profiles').update({ role }).eq('id', userId)
     router.refresh()
     setLoading(null)
   }
 
   return (
-    <div className="min-h-screen bg-gray-50" dir="rtl">
-      <header className="bg-gray-900 text-white">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold">👥 مدیریت کاربران</h1>
-          <Link href="/admin" className="text-sm text-gray-400 hover:text-white">بازگشت</Link>
-        </div>
-      </header>
+    <AdminLayout adminName={adminName}>
+      <div>
+        <h2 style={{fontSize:'1.4rem', fontWeight:700, color:'#0f172a', marginBottom:'1.5rem'}}>مدیریت کاربران</h2>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <input
-          type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="جستجو بر اساس نام..."
-          className="w-full border border-gray-300 rounded-lg px-4 py-2 mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+          style={{width:'100%', border:'1px solid #e2e8f0', borderRadius:10, padding:'10px 16px', marginBottom:'1.5rem', fontSize:'0.875rem', outline:'none', background:'#fff'}} />
 
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="text-right px-4 py-3 text-gray-600">کاربر</th>
-                <th className="text-right px-4 py-3 text-gray-600">شهر</th>
-                <th className="text-right px-4 py-3 text-gray-600">نقش</th>
-                <th className="text-right px-4 py-3 text-gray-600">وضعیت</th>
-                <th className="text-right px-4 py-3 text-gray-600">عملیات</th>
+        <div style={{background:'#fff', borderRadius:12, boxShadow:'0 1px 3px rgba(0,0,0,0.06)', overflow:'hidden'}}>
+          <table style={{width:'100%', borderCollapse:'collapse', fontSize:'0.875rem'}}>
+            <thead>
+              <tr style={{background:'#f8fafc', borderBottom:'1px solid #e2e8f0'}}>
+                {['کاربر','شهر','نقش','وضعیت','عملیات'].map(h => (
+                  <th key={h} style={{textAlign:'right', padding:'12px 16px', color:'#475569', fontWeight:600}}>{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {filtered.map(u => (
-                <tr key={u.id} className={u.is_banned ? 'bg-red-50' : ''}>
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-800">{u.full_name || '—'}</p>
-                    <p className="text-xs text-gray-400">{u.username || '—'}</p>
+                <tr key={u.id} style={{borderBottom:'1px solid #f1f5f9', background: u.is_banned ? '#fef2f2' : '#fff'}}>
+                  <td style={{padding:'12px 16px'}}>
+                    <div style={{fontWeight:600, color:'#0f172a'}}>{u.full_name || '—'}</div>
+                    <div style={{fontSize:'0.75rem', color:'#94a3b8'}}>{u.username || '—'}</div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{u.city || '—'}</td>
-                  <td className="px-4 py-3">
-                    <select
-                      value={u.role || 'user'}
+                  <td style={{padding:'12px 16px', color:'#475569'}}>{u.city || '—'}</td>
+                  <td style={{padding:'12px 16px'}}>
+                    <select value={u.role || 'user'}
                       disabled={u.id === currentUserId || loading === u.id}
                       onChange={e => handleRole(u.id, e.target.value)}
-                      className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none">
+                      style={{border:'1px solid #e2e8f0', borderRadius:6, padding:'4px 8px', fontSize:'0.8rem', background:'#fff'}}>
                       <option value="user">کاربر</option>
                       <option value="moderator">ناظر</option>
                       <option value="admin">ادمین</option>
                     </select>
                   </td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      u.is_banned
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-green-100 text-green-700'
-                    }`}>
+                  <td style={{padding:'12px 16px'}}>
+                    <span style={{fontSize:'0.75rem', padding:'4px 10px', borderRadius:20, background: u.is_banned ? '#fef2f2' : '#ecfdf5', color: u.is_banned ? '#ef4444' : '#10b981', fontWeight:500}}>
                       {u.is_banned ? 'مسدود' : 'فعال'}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td style={{padding:'12px 16px'}}>
                     {u.id !== currentUserId && (
-                      <button
-                        onClick={() => handleBan(u.id, u.is_banned)}
+                      <button onClick={() => handleBan(u.id, u.is_banned)}
                         disabled={loading === u.id}
-                        className={`text-xs px-3 py-1 rounded-lg transition disabled:opacity-50 ${
-                          u.is_banned
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                            : 'bg-red-100 text-red-700 hover:bg-red-200'
-                        }`}>
+                        style={{fontSize:'0.75rem', padding:'6px 12px', borderRadius:6, border:'none', cursor:'pointer', background: u.is_banned ? '#ecfdf5' : '#fef2f2', color: u.is_banned ? '#10b981' : '#ef4444', fontWeight:500}}>
                         {loading === u.id ? '...' : u.is_banned ? 'رفع مسدودیت' : 'مسدود کردن'}
                       </button>
                     )}
@@ -109,7 +84,7 @@ export default function UsersManager({ users, currentUserId }) {
             </tbody>
           </table>
         </div>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }

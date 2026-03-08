@@ -1,26 +1,20 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
+import AdminLayout from './AdminLayout'
 
 export default async function AdminDashboard() {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
-  
-  console.log('admin page - user:', user?.id)
-  
   if (!user) redirect('/login')
 
-  const { data: profile, error } = await supabase
+  const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, full_name')
     .eq('id', user.id)
     .single()
 
-  console.log('admin page - profile:', profile, 'error:', error)
-
   if (!profile || profile.role !== 'admin') redirect('/')
 
-  // آمار کلی
   const [
     { count: usersCount },
     { count: booksCount },
@@ -33,54 +27,53 @@ export default async function AdminDashboard() {
     supabase.from('reviews').select('*', { count: 'exact', head: true }),
   ])
 
-  const stats = [
-    { label: 'کاربران', count: usersCount, icon: '👥', href: '/admin/users' },
-    { label: 'کتاب‌ها', count: booksCount, icon: '📚', href: '/admin/books' },
-    { label: 'درخواست‌ها', count: requestsCount, icon: '📬', href: '/admin/requests' },
-    { label: 'نظرات', count: reviewsCount, icon: '⭐', href: '/admin/reviews' },
-  ]
-
   return (
-    <div className="min-h-screen bg-gray-50" dir="rtl">
-      <header className="bg-gray-900 text-white">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold">🛡️ پنل مدیریت</h1>
-          <Link href="/" className="text-sm text-gray-400 hover:text-white">بازگشت به سایت</Link>
-        </div>
-      </header>
+    <AdminLayout adminName={profile.full_name} activePage="dashboard">
+      <div>
+        <h2 style={{fontSize:'1.4rem', fontWeight:700, color:'#0f172a', marginBottom:'1.5rem'}}>داشبورد</h2>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">داشبورد</h2>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {stats.map(s => (
-            <Link key={s.href} href={s.href}
-              className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition text-center">
-              <div className="text-4xl mb-2">{s.icon}</div>
-              <div className="text-3xl font-bold text-gray-800">{s.count}</div>
-              <div className="text-sm text-gray-500 mt-1">{s.label}</div>
-            </Link>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* کارت‌های آمار */}
+        <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'1rem', marginBottom:'2rem'}}>
           {[
-            { href: '/admin/users', icon: '👥', title: 'مدیریت کاربران', desc: 'مشاهده، مسدود کردن و تغییر نقش کاربران' },
-            { href: '/admin/books', icon: '📚', title: 'مدیریت کتاب‌ها', desc: 'مشاهده و غیرفعال کردن کتاب‌های نامناسب' },
-            { href: '/admin/reviews', icon: '⭐', title: 'مدیریت نظرات', desc: 'حذف نظرات نامناسب' },
-            { href: '/admin/requests', icon: '📬', title: 'مدیریت درخواست‌ها', desc: 'مشاهده وضعیت همه درخواست‌ها' },
-          ].map(item => (
-            <Link key={item.href} href={item.href}
-              className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition flex items-start gap-4">
-              <span className="text-3xl">{item.icon}</span>
-              <div>
-                <h3 className="font-bold text-gray-800">{item.title}</h3>
-                <p className="text-sm text-gray-500 mt-1">{item.desc}</p>
+            { label:'کاربران', count: usersCount, icon:'👥', color:'#6366f1', bg:'#eef2ff' },
+            { label:'کتاب‌ها', count: booksCount, icon:'📚', color:'#10b981', bg:'#ecfdf5' },
+            { label:'درخواست‌ها', count: requestsCount, icon:'📬', color:'#3b82f6', bg:'#eff6ff' },
+            { label:'نظرات', count: reviewsCount, icon:'⭐', color:'#f59e0b', bg:'#fffbeb' },
+          ].map(s => (
+            <div key={s.label} style={{background:'#fff', borderRadius:'12px', padding:'1.5rem', boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem'}}>
+                <span style={{fontSize:'0.8rem', color:'#475569', fontWeight:500}}>{s.label}</span>
+                <div style={{width:40, height:40, borderRadius:'10px', background:s.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.2rem'}}>
+                  {s.icon}
+                </div>
               </div>
-            </Link>
+              <div style={{fontSize:'2rem', fontWeight:800, color:'#0f172a'}}>{s.count}</div>
+            </div>
           ))}
         </div>
-      </main>
-    </div>
+
+        {/* دسترسی سریع */}
+        <div style={{background:'#fff', borderRadius:'12px', padding:'1.5rem', boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+          <h3 style={{fontWeight:600, marginBottom:'1rem', color:'#0f172a'}}>دسترسی سریع</h3>
+          <div style={{display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'1rem'}}>
+            {[
+              { href:'/admin/users', icon:'👥', title:'مدیریت کاربران', desc:'مشاهده، مسدود کردن و تغییر نقش' },
+              { href:'/admin/books', icon:'📚', title:'مدیریت کتاب‌ها', desc:'غیرفعال کردن کتاب‌های نامناسب' },
+              { href:'/admin/reviews', icon:'⭐', title:'مدیریت نظرات', desc:'حذف نظرات نامناسب' },
+              { href:'/admin/requests', icon:'📬', title:'مدیریت درخواست‌ها', desc:'وضعیت همه درخواست‌ها' },
+            ].map(item => (
+              <a key={item.href} href={item.href}
+                style={{display:'flex', alignItems:'center', gap:'1rem', padding:'1rem', borderRadius:'10px', background:'#f8fafc', border:'1px solid #e2e8f0', textDecoration:'none', transition:'all 0.2s'}}>
+                <div style={{fontSize:'1.5rem'}}>{item.icon}</div>
+                <div>
+                  <div style={{fontWeight:600, color:'#0f172a', fontSize:'0.9rem'}}>{item.title}</div>
+                  <div style={{fontSize:'0.75rem', color:'#94a3b8', marginTop:'2px'}}>{item.desc}</div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </AdminLayout>
   )
 }
