@@ -17,12 +17,13 @@ export default function Home() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
-
-      const { data } = await supabase
-        .from('books')
-        .select(`*, profiles(full_name, city)`)
-        .eq('is_available', true)
-        .order('created_at', { ascending: false })
+	
+     const { data } = await supabase
+	.from('books')
+	.select(`*, profiles(full_name, city)`)
+	.eq('is_available', true)
+	.eq('is_active', true)
+	.order('created_at', { ascending: false })
 
       setBooks(data || [])
       setFiltered(data || [])
