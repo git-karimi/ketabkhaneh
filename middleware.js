@@ -25,13 +25,31 @@ export async function middleware(request) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const protectedRoutes = ['/dashboard', '/books/add']
-  const isProtected = protectedRoutes.some(route =>
-    request.nextUrl.pathname.startsWith(route)
-  )
+  const path = request.nextUrl.pathname
+
+  // صفحاتی که نیاز به لاگین دارند
+  const protectedRoutes = ['/dashboard', '/books/add', '/books/edit']
+  const isProtected = protectedRoutes.some(route => path.startsWith(route))
 
   if (isProtected && !user) {
     return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  // صفحه ادمین — فقط لاگین بودن کافی نیست
+  if (path.startsWith('/admin')) {
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'admin') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
   }
 
   return supabaseResponse
