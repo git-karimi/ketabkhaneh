@@ -2,9 +2,9 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import AdminLayout from '../AdminLayout'
 
-export default function BooksManager({ books }) {
+export default function BooksManager({ books, adminName }) {
   const [loading, setLoading] = useState(null)
   const [search, setSearch] = useState('')
   const router = useRouter()
@@ -18,7 +18,7 @@ export default function BooksManager({ books }) {
   async function handleToggle(bookId, isActive) {
     setLoading(bookId)
     await supabase.from('books')
-      .update({ is_active: !isActive })
+      .update({ is_active: !isActive, is_available: isActive })
       .eq('id', bookId)
     router.refresh()
     setLoading(null)
@@ -33,78 +33,55 @@ export default function BooksManager({ books }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50" dir="rtl">
-      <header className="bg-gray-900 text-white">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold">📚 مدیریت کتاب‌ها</h1>
-          <Link href="/admin" className="text-sm text-gray-400 hover:text-white">بازگشت</Link>
-        </div>
-      </header>
+    <AdminLayout adminName={adminName}>
+      <div>
+        <h2 style={{fontSize:'1.4rem', fontWeight:700, color:'#0f172a', marginBottom:'1.5rem'}}>مدیریت کتاب‌ها</h2>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <input
-          type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="جستجو بر اساس عنوان یا نویسنده..."
-          className="w-full border border-gray-300 rounded-lg px-4 py-2 mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+          style={{width:'100%', border:'1px solid #e2e8f0', borderRadius:10, padding:'10px 16px', marginBottom:'1.5rem', fontSize:'0.875rem', outline:'none', background:'#fff'}} />
 
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="text-right px-4 py-3 text-gray-600">کتاب</th>
-                <th className="text-right px-4 py-3 text-gray-600">صاحب</th>
-                <th className="text-right px-4 py-3 text-gray-600">نوع</th>
-                <th className="text-right px-4 py-3 text-gray-600">وضعیت</th>
-                <th className="text-right px-4 py-3 text-gray-600">عملیات</th>
+        <div style={{background:'#fff', borderRadius:12, boxShadow:'0 1px 3px rgba(0,0,0,0.06)', overflow:'hidden'}}>
+          <table style={{width:'100%', borderCollapse:'collapse', fontSize:'0.875rem'}}>
+            <thead>
+              <tr style={{background:'#f8fafc', borderBottom:'1px solid #e2e8f0'}}>
+                {['کتاب','صاحب','نوع','وضعیت','عملیات'].map(h => (
+                  <th key={h} style={{textAlign:'right', padding:'12px 16px', color:'#475569', fontWeight:600}}>{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {filtered.map(book => (
-                <tr key={book.id} className={!book.is_active ? 'bg-red-50' : ''}>
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-800">{book.title}</p>
-                    <p className="text-xs text-gray-400">{book.author}</p>
+                <tr key={book.id} style={{borderBottom:'1px solid #f1f5f9', background: !book.is_active ? '#fef2f2' : '#fff'}}>
+                  <td style={{padding:'12px 16px'}}>
+                    <div style={{fontWeight:600, color:'#0f172a'}}>{book.title}</div>
+                    <div style={{fontSize:'0.75rem', color:'#94a3b8'}}>{book.author}</div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {book.profiles?.full_name || '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1 flex-wrap">
+                  <td style={{padding:'12px 16px', color:'#475569'}}>{book.profiles?.full_name || '—'}</td>
+                  <td style={{padding:'12px 16px'}}>
+                    <div style={{display:'flex', gap:4, flexWrap:'wrap'}}>
                       {book.offer_type?.map(type => (
-                        <span key={type} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                        <span key={type} style={{fontSize:'0.7rem', padding:'3px 8px', borderRadius:20, background:'#f1f5f9', color:'#475569'}}>
                           {type === 'borrow' ? 'قرض' : type === 'gift' ? 'هدیه' : 'فروش'}
                         </span>
                       ))}
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      book.is_active
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}>
+                  <td style={{padding:'12px 16px'}}>
+                    <span style={{fontSize:'0.75rem', padding:'4px 10px', borderRadius:20, background: book.is_active ? '#ecfdf5' : '#fef2f2', color: book.is_active ? '#10b981' : '#ef4444', fontWeight:500}}>
                       {book.is_active ? 'فعال' : 'غیرفعال'}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleToggle(book.id, book.is_active)}
+                  <td style={{padding:'12px 16px'}}>
+                    <div style={{display:'flex', gap:6}}>
+                      <button onClick={() => handleToggle(book.id, book.is_active)}
                         disabled={loading === book.id}
-                        className={`text-xs px-3 py-1 rounded-lg transition disabled:opacity-50 ${
-                          book.is_active
-                            ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                            : 'bg-green-100 text-green-700 hover:bg-green-200'
-                        }`}>
+                        style={{fontSize:'0.75rem', padding:'6px 12px', borderRadius:6, border:'none', cursor:'pointer', background: book.is_active ? '#fffbeb' : '#ecfdf5', color: book.is_active ? '#f59e0b' : '#10b981', fontWeight:500}}>
                         {loading === book.id ? '...' : book.is_active ? 'غیرفعال' : 'فعال'}
                       </button>
-                      <button
-                        onClick={() => handleDelete(book.id)}
+                      <button onClick={() => handleDelete(book.id)}
                         disabled={loading === book.id}
-                        className="text-xs px-3 py-1 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition disabled:opacity-50">
+                        style={{fontSize:'0.75rem', padding:'6px 12px', borderRadius:6, border:'none', cursor:'pointer', background:'#fef2f2', color:'#ef4444', fontWeight:500}}>
                         حذف
                       </button>
                     </div>
@@ -114,7 +91,7 @@ export default function BooksManager({ books }) {
             </tbody>
           </table>
         </div>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }

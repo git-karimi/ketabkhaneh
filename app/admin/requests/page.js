@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
+import AdminLayout from '../AdminLayout'
 
 export default async function AdminRequests() {
   const supabase = await createServerSupabaseClient()
@@ -8,20 +8,12 @@ export default async function AdminRequests() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+    .from('profiles').select('role, full_name').eq('id', user.id).single()
   if (profile?.role !== 'admin') redirect('/')
 
   const { data: requests } = await supabase
     .from('requests')
-    .select(`
-      *,
-      books(title),
-      requester:profiles!requests_requester_id_fkey(full_name),
-      owner:profiles!requests_owner_id_fkey(full_name)
-    `)
+    .select(`*, books(title), requester:profiles!requests_requester_id_fkey(full_name), owner:profiles!requests_owner_id_fkey(full_name)`)
     .order('created_at', { ascending: false })
 
   const statusLabel = s =>
@@ -32,50 +24,37 @@ export default async function AdminRequests() {
     t === 'borrow' ? 'قرض' : t === 'gift' ? 'هدیه' : 'خرید'
 
   return (
-    <div className="min-h-screen bg-gray-50" dir="rtl">
-      <header className="bg-gray-900 text-white">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold">📬 مدیریت درخواست‌ها</h1>
-          <Link href="/admin" className="text-sm text-gray-400 hover:text-white">بازگشت</Link>
-        </div>
-      </header>
+    <AdminLayout adminName={profile.full_name}>
+      <div>
+        <h2 style={{fontSize:'1.4rem', fontWeight:700, color:'#0f172a', marginBottom:'1.5rem'}}>مدیریت درخواست‌ها</h2>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="text-right px-4 py-3 text-gray-600">کتاب</th>
-                <th className="text-right px-4 py-3 text-gray-600">درخواست‌دهنده</th>
-                <th className="text-right px-4 py-3 text-gray-600">صاحب کتاب</th>
-                <th className="text-right px-4 py-3 text-gray-600">نوع</th>
-                <th className="text-right px-4 py-3 text-gray-600">وضعیت</th>
+        <div style={{background:'#fff', borderRadius:12, boxShadow:'0 1px 3px rgba(0,0,0,0.06)', overflow:'hidden'}}>
+          <table style={{width:'100%', borderCollapse:'collapse', fontSize:'0.875rem'}}>
+            <thead>
+              <tr style={{background:'#f8fafc', borderBottom:'1px solid #e2e8f0'}}>
+                {['کتاب','درخواست‌دهنده','صاحب کتاب','نوع','وضعیت'].map(h => (
+                  <th key={h} style={{textAlign:'right', padding:'12px 16px', color:'#475569', fontWeight:600}}>{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {requests?.map(req => (
-                <tr key={req.id}>
-                  <td className="px-4 py-3 font-medium text-gray-800">
-                    {req.books?.title || '—'}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {req.requester?.full_name || '—'}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {req.owner?.full_name || '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                <tr key={req.id} style={{borderBottom:'1px solid #f1f5f9'}}>
+                  <td style={{padding:'12px 16px', fontWeight:600, color:'#0f172a'}}>{req.books?.title || '—'}</td>
+                  <td style={{padding:'12px 16px', color:'#475569'}}>{req.requester?.full_name || '—'}</td>
+                  <td style={{padding:'12px 16px', color:'#475569'}}>{req.owner?.full_name || '—'}</td>
+                  <td style={{padding:'12px 16px'}}>
+                    <span style={{fontSize:'0.75rem', padding:'4px 10px', borderRadius:20, background:'#f1f5f9', color:'#475569'}}>
                       {typeLabel(req.request_type)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs">{statusLabel(req.status)}</td>
+                  <td style={{padding:'12px 16px', fontSize:'0.8rem'}}>{statusLabel(req.status)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }

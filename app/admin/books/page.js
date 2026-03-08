@@ -8,10 +8,7 @@ export default async function AdminBooks() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+    .from('profiles').select('role, full_name').eq('id', user.id).single()
   if (profile?.role !== 'admin') redirect('/')
 
   const { data: books } = await supabase
@@ -19,5 +16,5 @@ export default async function AdminBooks() {
     .select(`*, profiles(full_name)`)
     .order('created_at', { ascending: false })
 
-  return <BooksManager books={books || []} />
+  return <BooksManager books={books || []} adminName={profile.full_name} />
 }

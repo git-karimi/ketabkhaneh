@@ -8,10 +8,7 @@ export default async function AdminReviews() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+    .from('profiles').select('role, full_name').eq('id', user.id).single()
   if (profile?.role !== 'admin') redirect('/')
 
   const { data: reviews } = await supabase
@@ -19,5 +16,5 @@ export default async function AdminReviews() {
     .select(`*, profiles(full_name), books(title)`)
     .order('created_at', { ascending: false })
 
-  return <ReviewsManager reviews={reviews || []} />
+  return <ReviewsManager reviews={reviews || []} adminName={profile.full_name} />
 }
