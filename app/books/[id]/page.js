@@ -31,10 +31,11 @@ export default async function BookDetail({ params }) {
   }
 
   // نظرات
-  const { data: reviews } = await supabase
+   const { data: reviews } = await supabase
     .from('reviews')
     .select(`*, profiles(full_name)`)
     .eq('book_id', id)
+    .eq('is_active', true)
     .order('created_at', { ascending: false })
 
   // نظر کاربر فعلی
