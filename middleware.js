@@ -26,6 +26,22 @@ export async function middleware(request) {
   const { data: { user } } = await supabase.auth.getUser()
   const path = request.nextUrl.pathname
 
+  // چک کردن مسدودیت
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_banned, role')
+      .eq('id', user.id)
+      .single()
+
+    // اگر مسدود شده، خارج کن
+    if (profile?.is_banned) {
+      await supabase.auth.signOut()
+      return NextResponse.redirect(new URL('/login?banned=true', request.url))
+    }
+  }
+
+  // صفحاتی که نیاز به لاگین دارند
   const protectedRoutes = ['/dashboard', '/books/add', '/books/edit']
   const isProtected = protectedRoutes.some(route => path.startsWith(route))
 

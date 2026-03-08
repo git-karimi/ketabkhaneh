@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -10,6 +11,8 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isBanned = searchParams.get('banned')
   const supabase = createClient()
 
   async function handleLogin() {
@@ -35,6 +38,12 @@ export default function LoginPage() {
             {error}
           </div>
         )}
+
+   {isBanned && (
+     <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm text-center">
+     حساب شما توسط مدیر مسدود شده است
+     </div>
+    )}
 
         <div className="space-y-4">
           <div>
