@@ -24,7 +24,6 @@ export async function middleware(request) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-
   const path = request.nextUrl.pathname
 
   // صفحاتی که نیاز به لاگین دارند
@@ -35,7 +34,7 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // صفحه ادمین — فقط لاگین بودن کافی نیست
+  // صفحه ادمین
   if (path.startsWith('/admin')) {
     if (!user) {
       return NextResponse.redirect(new URL('/login', request.url))
@@ -47,7 +46,9 @@ export async function middleware(request) {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin') {
+    console.log('admin check - user:', user.id, 'role:', profile?.role)
+
+    if (!profile || profile.role !== 'admin') {
       return NextResponse.redirect(new URL('/', request.url))
     }
   }
